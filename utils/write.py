@@ -65,7 +65,7 @@ def write_obj_with_texture(obj_name, vertices, triangles, texture, uv_coords):
     # write obj
     with open(obj_name, 'w') as f:
         # first line: write mtlib(material library)
-        s = "mtllib {}\n".format(os.path.abspath(mtl_name))
+        s = "mtllib {}\n".format(os.path.basename(mtl_name))
         f.write(s)
 
         # write vertices
@@ -89,7 +89,7 @@ def write_obj_with_texture(obj_name, vertices, triangles, texture, uv_coords):
     # write mtl
     with open(mtl_name, 'w') as f:
         f.write("newmtl FaceTexture\n")
-        s = 'map_Kd {}\n'.format(os.path.abspath(texture_name)) # map to image
+        s = 'map_Kd {}\n'.format(os.path.basename(texture_name)) # map to image
         f.write(s)
 
     # write texture as png
@@ -118,7 +118,7 @@ def write_obj_with_colors_texture(obj_name, vertices, colors, triangles, texture
     # write obj
     with open(obj_name, 'w') as f:
         # first line: write mtlib(material library)
-        s = "mtllib {}\n".format(os.path.abspath(mtl_name))
+        s = "mtllib {}\n".format(os.path.basename(mtl_name))
         f.write(s)
 
         # write vertices
@@ -142,7 +142,7 @@ def write_obj_with_colors_texture(obj_name, vertices, colors, triangles, texture
     # write mtl
     with open(mtl_name, 'w') as f:
         f.write("newmtl FaceTexture\n")
-        s = 'map_Kd {}\n'.format(os.path.abspath(texture_name)) # map to image
+        s = 'map_Kd {}\n'.format(os.path.basename(texture_name)) # map to image
         f.write(s)
 
     # write texture as png

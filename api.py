@@ -62,6 +62,7 @@ class PRN:
         return self.pos_predictor.predict(image)
 
     def process(self, input, image_info = None):
+        print("Here is input: ", input.shape)
         ''' process image with crop operation.
         Args:
             input: (h,w,3) array or str(image path). image value range:1~255. 

@@ -7,30 +7,39 @@ from skimage.transform import rescale, resize
 from time import time
 import argparse
 import ast
-import matplotlib.pyplot as plt
 import argparse
 
 from api import PRN
 from utils.render import render_texture
 import cv2
+from utils.rotate_vertices import frontalize
+from utils.estimate_pose import estimate_pose
 
 
 def texture_editing(prn, args):
     # read image
-    print(args.output_path)
     image = imread(args.image_path)
-    [h, w, _] = image.shape
+
+    if len(image.shape) > 2:
+        [h, w, c] = image.shape
+        if c > 3:
+            image = image[:, :, :3]
+    else:
+        [h, w] = image.shape
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    #[h, w, _] = image.shape
 
     #-- 1. 3d reconstruction -> get texture. 
     pos = prn.process(image) 
+    print("Pose shape: ", pos.shape)
     vertices = prn.get_vertices(pos)
+    print("Vertice shape: ", vertices.shape)
+
     image = image/255.
     texture = cv2.remap(image, pos[:,:,:2].astype(np.float32), None, interpolation=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT,borderValue=(0))
-    cv2.imwrite("Texture.png", (texture*255).astype(int))
-    
 
-
-
+    #filename, _ = os.path.splitext(args.image_path)
+    #cv2.imwrite(filename + '_tex.jpg', texture[:, :, ::-1] * 255)
     #-- 2. Texture Editing
     Mode = args.mode
     # change part of texture(for data augumentation/selfie editing. Here modify eyes for example)
@@ -53,11 +62,24 @@ def texture_editing(prn, args):
     elif Mode == 1: 
         # texture from another image or a processed texture
         ref_image = imread(args.ref_path)
+
+        if len(ref_image.shape) > 2:
+            #[h, w, c] = ref_image.shape
+            if c > 3:
+                ref_image = ref_image[:, :, :3]
+        else:
+            #[h, w] = ref_image.shape
+            ref_image = cv2.cvtColor(ref_image, cv2.COLOR_GRAY2BGR)
+
         ref_pos = prn.process(ref_image)
         ref_image = ref_image/255.
         ref_texture = cv2.remap(ref_image, ref_pos[:,:,:2].astype(np.float32), None, interpolation=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT,borderValue=(0))
+
+        filename, _ = os.path.splitext(args.ref_path)
+        cv2.imwrite(filename + '_tex.jpg', ref_texture[:, :, ::-1] * 255)
         ref_vertices = prn.get_vertices(ref_pos)
         new_texture = ref_texture#(texture + ref_texture)/2.
+
 
     else:
         print('Wrong Mode! Mode should be 0 or 1.')
@@ -81,66 +103,29 @@ def texture_editing(prn, args):
     output = cv2.seamlessClone((new_image*255).astype(np.uint8), (image*255).astype(np.uint8), (face_mask*255).astype(np.uint8), center, cv2.NORMAL_CLONE)
    
     # save output
-    imsave(args.output_path, output) 
+    print("Vertice:", vertices)
+    camera_matrix, pose, rotation_matrix = estimate_pose(vertices)
+    # pose, rotation_matrix = estimate_pose(vertices)
+
+
+    center_pt = np.mean(vertices, axis=0)
+    vertices_trans = vertices - center_pt
+
+    save_vertices = frontalize(vertices_trans, rotation_matrix)
+
+    save_vertices = save_vertices + center_pt
+
+    if not os.path.exists(os.path.dirname(args.output_path)):
+        os.makedirs(os.path.dirname(args.output_path))
+
+    sio.savemat(os.path.join(os.path.dirname(args.output_path), os.path.basename(args.output_path) + '_mesh.mat'),
+                {'vertices': save_vertices, 'colors': new_colors, 'triangles': prn.triangles})
+    imsave(args.output_path, output)
+
     print('Done.')
 
 
-
-def write_video_to_files():
-    obama_syn = cv2.VideoCapture("/home/vuthede/AI/first-order-model/result2.mp4")
-    obama_fullhd = cv2.VideoCapture("/home/vuthede/AI/first-order-model/obama_fullhd.mp4")
-    x1 = 685
-    y1 = 85
-    x2 = 1250
-    y2 = 650
-
-    i = 0
-    while True:
-        i+=1
-        for j in range(3):
-            ret, img_obama_syn = obama_syn.read()
-            ret1, img_obamahd = obama_fullhd.read()
-
-        if not ret or not ret1:
-            print(f"Break at frame {i}")
-            break
-        
-        obama_crop = img_obamahd[y1:y2, x1:x2]
-        img_obama_syn = cv2.resize(img_obama_syn, (x2-x1, y2-y1))
-
-
-        cv2.imwrite(f"/home/vuthede/Desktop/3D/input/{i}.png", obama_crop)
-        cv2.imwrite(f"/home/vuthede/Desktop/3D/ref/{i}.png", img_obama_syn)
-
-def merge_frames():
-    syn_dir = "/home/vuthede/Desktop/3D/input/"
-    full_hd_dir = "/home/vuthede/Desktop/3D/ref/"
-    warping_dir = "/home/vuthede/Desktop/3D/output_swap/"
-    out = cv2.VideoWriter('/home/vuthede/Desktop/3D/out.mp4',cv2.VideoWriter_fourcc('M','J','P','G'), 10, (565*3, 565))
-    for i in range(1,150):
-        im1 = cv2.imread(syn_dir+f"{i}.png")
-        im2 = cv2.imread(full_hd_dir+f"{i}.png")
-        im3 = cv2.imread(warping_dir+f"{i}.png")
-
-        concat = np.hstack([im1, im2, im3])
-        out.write(concat)
-
-        print(concat.shape)
-        cv2.imshow("Concat", concat)
-        k = cv2.waitKey(0)
-
-        if k ==27:
-            break
-
-    out.release()
-        
-
-
-
-
-
 if __name__ == '__main__':
-    from tqdm import tqdm
     parser = argparse.ArgumentParser(description='Texture Editing by PRN')
 
     parser.add_argument('-i', '--image_path', default='TestImages/AFLW2000/image00081.jpg', type=str,
@@ -156,18 +141,6 @@ if __name__ == '__main__':
 
     # ---- init PRN
     os.environ['CUDA_VISIBLE_DEVICES'] = parser.parse_args().gpu # GPU number, -1 for CPU
-    prn = PRN(is_dlib = True) 
+    prn = PRN(is_dlib = True)
 
-    args = parser.parse_args()
-    texture_editing(prn,args)
-
-    #write_video_to_files()
-    # for i in tqdm(range(1, 150)): 
-    #     args.image_path = f"/home/vuthede/Desktop/3D/input/{i}.png"
-    #     args.ref_path = f"/home/vuthede/Desktop/3D/ref/{i}.png"
-    #     args.output_path = f"/home/vuthede/Desktop/3D/output_swap/{i}.png"
-    #     texture_editing(prn,args)
-
-    #     print(f"Finish warping {i}-th frame")
-
-    # merge_frames()
+    texture_editing(prn, parser.parse_args())
