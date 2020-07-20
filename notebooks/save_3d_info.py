@@ -25,7 +25,7 @@ def save_information(img, output):
                   'cam_mat': cam_mat, 'pose':pose, 'R': R}
     pickle.dump(dictionary,open(output, 'wb'))
 
-def save_3d_info_sync(video_synthesis, output="./synthesis"):
+def save_3d_info_sync(video_synthesis, output="./synthesis1"):
     if  not os.path.isdir(output):
         os.makedirs(output)
 
@@ -38,8 +38,8 @@ def save_3d_info_sync(video_synthesis, output="./synthesis"):
     i = 0
     while True:
         i+=1
-        for j in range(3):
-            ret, img_obama_syn = obama_syn.read()
+        # for j in range(3):
+        ret, img_obama_syn = obama_syn.read()
 
         if not ret:
             print(f"Break at frame {i}")
@@ -50,7 +50,7 @@ def save_3d_info_sync(video_synthesis, output="./synthesis"):
         print(f"Finish dump one file {output}/{i}.pickle")
 
 
-def save_3d_info_HD(video_HD, output="./HD"):
+def save_3d_info_HD(video_HD, output="./HD1-30fps"):
     if  not os.path.isdir(output):
         os.makedirs(output)
 
@@ -63,8 +63,8 @@ def save_3d_info_HD(video_HD, output="./HD"):
     i = 0
     while True:
         i+=1
-        for j in range(3):
-            ret1, img_obamahd = obama_fullhd.read()
+        # for j in range(3):
+        ret1, img_obamahd = obama_fullhd.read()
 
         if not ret1 or i>= 43*30:  # thus frame obama change view
             print(f"Break at frame {i}")
@@ -75,5 +75,5 @@ def save_3d_info_HD(video_HD, output="./HD"):
         print(f"Finish dump one file {output}/{i}.pickle")
 
 
-# save_3d_info_sync(video_synthesis="result2.mp4")
+# save_3d_info_sync(video_synthesis="resultdeenglish.mp4")
 save_3d_info_HD(video_HD="obama_fullhd.mp4")
